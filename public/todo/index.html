@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Todo List</title>
+	<link rel="stylesheet" href="assets/css/base.css">
+	<link rel="stylesheet" href="assets/css/index.css">
+	<link rel="stylesheet" href="../js/nprogress/nprogress.css">
+</head>
+
+<body>
+	<section class="todoapp">
+		<header class="header">
+			<h1>todos</h1>
+			<input type="text" class="new-todo" placeholder="What needs to be done?" autofocus id="task">
+		</header>
+		<!-- This section should be hidden by default and shown when there are todos -->
+		<section class="main">
+			<input class="toggle-all" type="checkbox">
+			<ul class="todo-list" id="todo-list"></ul>
+		</section>
+		<!-- This footer should hidden by default and shown when there are todos -->
+		<footer class="footer">
+			<!-- This should be `0 items left` by default -->
+			<span class="todo-count"><strong id="count">0</strong> item left</span>
+			<!-- Remove this if you don't implement routing -->
+			<ul class="filters">
+				<li>
+					<a class="selected" href="javascript:;">All</a>
+				</li>
+				<li>
+					<a href="javascript:;">Active</a>
+				</li>
+				<li>
+					<a href="javascript:;">Completed</a>
+				</li>
+			</ul>
+			<!-- Hidden if no completed items are left ↓ -->
+			<button class="clear-completed">Clear completed</button>
+		</footer>
+	</section>
+
+	<script src="js/nprogress/nprogress.js"></script>
+	<!-- 任务列表模板 -->
+</body>
+
+</html>
+<script src="../js/jquery.min.js"></script>
+<script src="../js/template-web.js"></script>
+
+<!-- 建立模板 -->
+<script type="text/html" id='tml'>
+	{{each data}}
+	<li class="{{$value.completed?'completed':''}}">
+			<div class="view">
+				<input class="toggle" type="checkbox" {{$value.completed?'checked':''}}>
+				<label>{{$value.title}}</label>
+				<button class="destroy" data-id='{{$value._id}}'></button>
+			</div>
+			<input class="edit">
+	</li>
+	{{/each}}
+	
+</script>
+
+<script>
+	let todo_list = document.querySelector('#todo-list');
+	let arr = new Array();
+	// 将列表显示在界面上
+	$.ajax({
+		type: 'get',
+		url: 'http://localhost:3000/todo/task',
+		success: function (data) {
+			// console.log(data);
+			
+			let html = template('tml', { data: data });
+			todo_list.innerHTML = html;
+			arr = data;
+			// console.log(arr);
+		}
+	});
+
+	//进行添加
+
+	let task = document.querySelector('#task');
+	task.onkeyup = function (e) {
+		if (e.keyCode == 13) {
+			$.ajax({
+				type: 'post',
+				url: 'http://localhost:3000/todo/addTask',
+				contentType: 'application/json',
+				data: JSON.stringify({
+					title: task.value
+				}),
+				success: function (result) {
+					arr.push(result);
+
+					let html = template('tml', { data: arr });
+					todo_list.innerHTML = html;
+
+				}
+			});
+			this.value = '';
+		}
+
+	}
+
+	// 删除
+	$('.todo-list').on('click', '.destroy', function () {
+		let id = $(this).attr('data-id');
+		$.ajax({
+			type: 'get',
+			url: 'http://localhost:3000/todo/deleteTask',
+			data: {
+				_id: id
+			},
+			success: function (data) {
+
+				let index = arr.findIndex(item => (item._id == id));
+				arr.splice(index, 1);
+				let html = template('tml', { data: arr });
+				todo_list.innerHTML = html;
+			}
+		});
+	});
+
+	//更改完成状态
+
+	$('.todo-list').on('click', '.toggle', function () {
+		let modiFyId = $(this).siblings('.destroy').attr('data-id');
+		let title = $(this).siblings('label').html();
+		let completed = $(this).is(':checked');
+		// console.log(completed);
+		
+		$.ajax({
+			type: 'post',
+			url: 'http://localhost:3000/todo/modifyTask',
+			contentType:'application/json',
+			data: JSON.stringify({
+				_id: modiFyId,
+				title: title,
+				completed: completed
+			}),
+			success: function (result) {
+				let duty = arr.find(item => (item._id == modiFyId));
+				
+				// console.log(result.completed);
+				
+				duty.completed=result.completed;
+				// console.log(duty.completed);
+				let html = template('tml', { data: arr });
+				todo_list.innerHTML = html;
+			}
+		});
+
+	});
+
+
+	// 修改任务名称
+	$('.todo-list').on('dblclick', 'label', function () {
+		$(this).parents('li').addClass('editing');
+		$(this).parent().next().val($(this).text());
+		$(this).parent().next().focus();
+		let id=$(this).siblings().children('button').attr('data-id');
+		// let one= arr.find(item=>item._id=id);
+		// one.title='1';
+	});;
+
+	//离开焦点事件
+	$('.todo-list').on('blur', '.edit', function () {
+		let id=$(this).siblings().children('button').attr('data-id');
+		
+		let completed=$(this).siblings().children('input').is(':checked');
+		let title=$(this).val();
+		let flag=arr.find(item=>item.title==title);
+	
+		$.ajax({
+			type:'post',
+			url:'http://localhost:3000/todo/modifyTask',
+			contentType:'application/json',
+			data:JSON.stringify({
+				_id:id,
+				title:title,
+				completed:completed
+			}),
+			success:function(result){
+				let duty=	arr.find(item=>item._id==id);
+				duty.title=result.title;
+				let html=template('tml',{data:arr});
+				todo_list.innerHTML=html;
+			}
+		});
+		
+	})
+
+
+
+
+
+
+
+</script>
